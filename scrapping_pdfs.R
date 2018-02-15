@@ -8,6 +8,7 @@ library(verification)
 library(lubridate)
 library(meteologica)
 library(pdftools)
+library(tabulizer)
 
 #http://www.foolabs.com/xpdf/download.html
 
@@ -195,10 +196,11 @@ SeriePredicciones <- function(tipo="CUPR"){
 
 CreaSerieMedia <- function(tipo="CUPR"){
   obs <- SerieObservaciones()
+  obs <- obs %>% dplyr::filter(obs$fechas!="")
   obs <- obs[,c("fechas","media")]
   obs$fechas <- as.Date(obs$fechas,forma="%d/%M/%y")
-  obs <- obs %>% dplyr::group_by(dia=yday(fechas)) %>% dplyr::summarise(media=mean(media,na.rm=TRUE))
-  obs$cat <- cut(obs$media,breaks=c(0,150,300,600,5000),labels=c("B","M","A","MA"))
+  obs <- obs %>% dplyr::group_by(dia=yday(fechas)) %>% dplyr::summarise(clima=mean(media,na.rm=TRUE))
+  obs$cat <- cut(obs$clima,breaks=c(0,111,201,479,5000),labels=c("B","M","A","MA"))
   obs$cat <- as.character(obs$cat)
   return(obs)
 }
@@ -235,7 +237,10 @@ AnalizaPredicciones <- function(preds=preds,obs=obs){
   
   g.pers <- ggplot(data=preds.res.pers)+geom_tile(aes(y=`D-1`,x=obs,fill=count))+geom_text(aes(y=`D-1`,x=obs,label=count))+theme_fivethirtyeight()+theme(legend.position="none")+labs(title="Predicción por persistencia vs observaciones")+scale_fill_gradient_tableau()
   g.D0 <- ggplot(data=preds.res.D0)+geom_tile(aes(y=D0,x=obs,fill=count))+geom_text(aes(y=D0,x=obs,label=count))+theme_fivethirtyeight()+theme_fivethirtyeight()+theme(legend.position="none")+labs(title="Predicción D0 vs observaciones")+scale_fill_gradient_tableau()
-  g.media <- ggplot(data=preds.res.media)+geom_tile(aes(y=media,x=obs,fill=count))+geom_text(aes(y=media,x=obs,label=count))+theme_fivethirtyeight()+theme_fivethirtyeight()+theme(legend.position="none")+labs(title="Predicción D0 vs observaciones")+scale_fill_gradient_tableau()
+  g.media <- ggplot(data=preds.res.media)+geom_tile(aes(y=media,x=obs,fill=count))+geom_text(aes(y=media,x=obs,label=count))+theme_fivethirtyeight()+theme_fivethirtyeight()+theme(legend.position="none")+labs(title="Predicción media vs observaciones")+scale_fill_gradient_tableau()
+  plot(g.pers)
+  plot(g.D0)
+  plot(g.media)
   #lo convierto en matrices para multi.cont
   pers <- matrix(NA,4,4)
   d0 <- matrix(NA,4,4)
@@ -269,6 +274,16 @@ AnalizaPredicciones <- function(preds=preds,obs=obs){
 }
 
 obs <- SerieObservaciones()
-preds <- SeriePredicciones()
+#quitamos una rareza
+obs <- obs %>% dplyr::filter(obs$fechas!="")
+obs$fecha2 <- as.Date(obs$fechas,format = "%d/%m/%y")
+obs$year <- year(obs$fecha2)
+obs$fecha2 <- as.Date(obs$fechas,format = "%d/%m")
+obs$yday <- yday(obs$fecha2)
 obs2 <- CreaSerieMedia()
+obs <- inner_join(obs,obs2,by=c("yday"="dia"))
+#graficos bonitos
+gb1 <- ggplot(obs) + geom_step(aes(x=fecha2,y=media)) + geom_line(aes(x=fecha2,y=clima),color="grey",size=0.5) + geom_hline(yintercept = 111,color="green") + geom_hline(yintercept = 202,color="orange") + geom_hline(yintercept = 479,color="red") + facet_grid(year~.) + labs(title="Niveles medios de pólenes de cupresácesas/taxáceas en la Comunidad de Madrid 2014-2018",x="fecha",y="granos por m³",caption="Fuente: boletines de RED Palinocam") + theme_bw()
+preds <- SeriePredicciones()
+obs2 <- obs2 %>% dplyr::filter(!is.na(dia))
 AnalizaPredicciones(obs = obs2,preds = preds)
