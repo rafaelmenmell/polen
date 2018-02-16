@@ -9,6 +9,7 @@ library(lubridate)
 library(meteologica)
 library(pdftools)
 library(tabulizer)
+library(stationaRy)
 
 #http://www.foolabs.com/xpdf/download.html
 
@@ -287,3 +288,28 @@ gb1 <- ggplot(obs) + geom_step(aes(x=fecha2,y=media)) + geom_line(aes(x=fecha2,y
 preds <- SeriePredicciones()
 obs2 <- obs2 %>% dplyr::filter(!is.na(dia))
 AnalizaPredicciones(obs = obs2,preds = preds)
+
+#cual es la serie de observaciones mas completa
+colSums(apply(obs, 2, is.na))
+#las series mas completas con "Las Rozas" y "Universitaria"
+obs.parciales <- obs %>% dplyr::select("fechas","Las Rozas","Universitaria")
+obs.parciales$fechas <- as.Date(obs.parciales$fechas,format = "%d/%m/%y")
+# plot(TimeLine(obs.parciales,"fechas"))
+# son las dos muy parecidas así que cualquiera me vale
+# vamos a descargar observaciones meteorológivas a ver si se puede hacer algo
+# son los dato de colmenar, es la serie mmás larga que puede servir como proxy de CU y las Rozas
+meteo.obs <- get_isd_station_data(station_id = "82190-99999",startyear = 2014,endyear = 2018)
+#como tenemos valores dairio vamos a quedarnos con el valor a las 12
+meteo.obs <- meteo.obs %>% dplyr::select(year,month,day,hour,minute,wd,ws,ceil_hgt,temp,dew_point,atmos_pres,rh) %>% dplyr::filter(hour==12 & minute==0)
+meteo.obs <- meteo.obs %>% dplyr::select(year,month,day,wd,ws,ceil_hgt,temp,dew_point,atmos_pres,rh)
+meteo.obs$fecha <- as.Date(ISOdate(year = meteo.obs$year,month = meteo.obs$month,day = meteo.obs$day))
+meteo.obs <- meteo.obs %>% dplyr::select(fecha,wd,ws,temp,dew_point,rh)
+
+obs.parciales.meteo <- left_join(obs.parciales,meteo.obs,by=c("fechas"="fecha"))
+#que no haya NA
+obs.parciales.meteo <- obs.parciales.meteo[complete.cases(obs.parciales.meteo),]
+#veamos algunos graficos
+ggplot(obs.parciales.meteo) + geom_point(aes(x=rh,y=Universitaria))
+modelo1 <- lm(data = obs.parciales.meteo,formula=Universitaria ~ temp + rh)
+obs.parciales.meteo$pred <- predict(modelo1)
+ggplot(obs.parciales.meteo) + geom_point(aes(x=pred,y=Universitaria))
