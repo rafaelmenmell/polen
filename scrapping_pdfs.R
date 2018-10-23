@@ -1,15 +1,15 @@
-library(tm)
-library(dplyr)
-library(raster)
-library(ggplot2)
-library(ggthemes)
-library(tidyr)
-library(verification)
-library(lubridate)
-library(meteologica)
-library(pdftools)
-library(tabulizer)
-library(stationaRy)
+library(tm,warn.conflicts = FALSE)
+library(dplyr,warn.conflicts = FALSE)
+library(raster,warn.conflicts = FALSE)
+library(ggplot2,warn.conflicts = FALSE)
+library(ggthemes,warn.conflicts = FALSE)
+library(tidyr,warn.conflicts = FALSE)
+library(verification,warn.conflicts = FALSE)
+library(lubridate,warn.conflicts = FALSE)
+library(meteologica,warn.conflicts = FALSE)
+library(pdftools,warn.conflicts = FALSE)
+library(tabulizer,warn.conflicts = FALSE)
+library(stationaRy,warn.conflicts = FALSE)
 
 #http://www.foolabs.com/xpdf/download.html
 
@@ -195,11 +195,11 @@ SeriePredicciones <- function(tipo="CUPR"){
   return(preds)
 }
 
-CreaSerieMedia <- function(tipo="CUPR"){
-  obs <- SerieObservaciones()
+CreaSerieMedia <- function(tipo="CUPR",obs1=obs){
+  obs <- obs1
   obs <- obs %>% dplyr::filter(obs$fechas!="")
   obs <- obs[,c("fechas","media")]
-  obs$fechas <- as.Date(obs$fechas,forma="%d/%M/%y")
+  obs$fechas <- as.Date(obs$fechas,forma="%d/%m/%y")
   obs <- obs %>% dplyr::group_by(dia=yday(fechas)) %>% dplyr::summarise(clima=mean(media,na.rm=TRUE))
   obs$cat <- cut(obs$clima,breaks=c(0,111,201,479,5000),labels=c("B","M","A","MA"))
   obs$cat <- as.character(obs$cat)
@@ -281,7 +281,7 @@ obs$fecha2 <- as.Date(obs$fechas,format = "%d/%m/%y")
 obs$year <- year(obs$fecha2)
 obs$fecha2 <- as.Date(obs$fechas,format = "%d/%m")
 obs$yday <- yday(obs$fecha2)
-obs2 <- CreaSerieMedia()
+obs2 <- CreaSerieMedia(obs1 = obs)
 obs <- inner_join(obs,obs2,by=c("yday"="dia"))
 #graficos bonitos
 gb1 <- ggplot(obs) + geom_step(aes(x=fecha2,y=media)) + geom_line(aes(x=fecha2,y=clima),color="grey",size=0.5) + geom_hline(yintercept = 111,color="green") + geom_hline(yintercept = 202,color="orange") + geom_hline(yintercept = 479,color="red") + facet_grid(year~.) + labs(title="Niveles medios de pólenes de cupresácesas/taxáceas en la Comunidad de Madrid 2014-2018",x="fecha",y="granos por m³",caption="Fuente: boletines de RED Palinocam") + theme_bw()
